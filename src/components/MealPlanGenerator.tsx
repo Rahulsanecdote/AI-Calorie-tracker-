@@ -55,8 +55,8 @@ export default function MealPlanGenerator({
     }
   }, []);
 
-  const handleGeneratePlan = async () => {
-    console.log('🚀🚀 handleGeneratePlan called (AI Suggestions)');
+  const handleAIPlanGeneration = async () => {
+    console.log('🚀🚀 handleAIPlanGeneration called (AI Suggestions)');
     console.log('📊 Settings:', {
       apiKey: settings.apiKey ? 'Present' : 'Missing',
       dailyCalorieGoal: settings.dailyCalorieGoal,
@@ -73,6 +73,11 @@ export default function MealPlanGenerator({
     console.log('📝 Request object:', request);
     console.log('📡 Calling onGeneratePlan (AI Suggestions)...');
     await onGeneratePlan(request);
+  };
+
+  const handlePantryPlanGeneration = () => {
+    console.log('🥘🥘🥘 handlePantryPlanGeneration called - Opening modal');
+    setShowPantryInput(true);
   };
 
   const handleGeneratePlanFromPantry = async (pantryData: PantryInputData) => {
@@ -151,7 +156,7 @@ export default function MealPlanGenerator({
                     e.preventDefault();
                     e.stopPropagation();
                     console.log('🥘🥘🥘 Pantry button clicked! Opening modal...');
-                    setShowPantryInput(true);
+                    handlePantryPlanGeneration();
                   }}
                   disabled={isGenerating}
                   className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all font-medium disabled:opacity-50"
@@ -175,7 +180,7 @@ export default function MealPlanGenerator({
                     e.preventDefault();
                     e.stopPropagation();
                     console.log('✨✨✨ AI Suggestions button clicked! Generating plan...');
-                    handleGeneratePlan();
+                    handleAIPlanGeneration();
                   }}
                   disabled={isGenerating}
                   className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all font-medium disabled:opacity-50"
@@ -259,7 +264,7 @@ export default function MealPlanGenerator({
 
           <div className="flex justify-center gap-3">
             <button
-              onClick={handleGeneratePlan}
+              onClick={handleAIPlanGeneration}
               className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors"
             >
               <RotateCcw className="w-4 h-4" />
