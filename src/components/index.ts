@@ -12,3 +12,4 @@ export { default as MealPlanGenerator } from './MealPlanGenerator';
 export { default as MealSectionCard } from './MealSectionCard';
 export { default as EditableFoodItem } from './EditableFoodItem';
 export { default as TemplateModal } from './TemplateModal';
+export { default as PantryInput } from './PantryInput';

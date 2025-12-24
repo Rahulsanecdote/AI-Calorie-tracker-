@@ -1,16 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, RotateCcw, Save, Loader2, ChefHat, Plus } from 'lucide-react';
-import { DailyMealPlan, MealPlanGenerationRequest, UserSettings } from '../types';
+import { Sparkles, RotateCcw, Save, Loader2, ChefHat, Plus, Package, Target } from 'lucide-react';
+import { DailyMealPlan, MealPlanGenerationRequest, UserSettings, PantryInputData } from '../types';
 import MealSectionCard from './MealSectionCard';
 import TemplateModal from './TemplateModal';
+import PantryInput from './PantryInput';
 
 interface MealPlanGeneratorProps {
   settings: UserSettings;
   currentPlan: DailyMealPlan | null;
   templates: any[];
+  userPantry?: any;
   isGenerating: boolean;
   error: string | null;
   onGeneratePlan: (request: MealPlanGenerationRequest) => Promise<void>;
+  onGeneratePlanFromPantry: (pantryData: PantryInputData) => Promise<void>;
+  onSavePantry: (pantryData: PantryInputData, saveAsDefault: boolean) => void;
   onRegeneratePlan: () => Promise<void>;
   onSaveTemplate: (name: string, description?: string) => void;
   onLoadTemplate: (templateId: string) => void;
@@ -23,9 +27,12 @@ export default function MealPlanGenerator({
   settings,
   currentPlan,
   templates,
+  userPantry,
   isGenerating,
   error,
   onGeneratePlan,
+  onGeneratePlanFromPantry,
+  onSavePantry,
   onRegeneratePlan,
   onSaveTemplate,
   onLoadTemplate,
@@ -34,6 +41,7 @@ export default function MealPlanGenerator({
   onAddMealToLog,
 }: MealPlanGeneratorProps) {
   const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [showPantryInput, setShowPantryInput] = useState(false);
 
   useEffect(() => {
     // Load today's plan from localStorage if exists
@@ -55,6 +63,30 @@ export default function MealPlanGenerator({
       dietaryPreferences: settings.dietaryPreferences || [],
     };
     await onGeneratePlan(request);
+  };
+
+  const handleGeneratePlanFromPantry = async (pantryData: PantryInputData) => {
+    await onGeneratePlanFromPantry(pantryData);
+    setShowPantryInput(false);
+  };
+
+  const handleSavePantry = (pantryData: PantryInputData, saveAsDefault: boolean) => {
+    onSavePantry(pantryData, saveAsDefault);
+  };
+
+  const calculateAccuracy = () => {
+    if (!currentPlan || !currentPlan.accuracyVariance) return null;
+    
+    const variance = currentPlan.accuracyVariance;
+    const accuracy = Math.max(0, 100 - (variance / settings.dailyCalorieGoal) * 100);
+    const isAccurate = variance <= 20;
+    
+    return {
+      variance,
+      accuracy: Math.round(accuracy),
+      isAccurate,
+      status: isAccurate ? 'excellent' : variance <= 50 ? 'good' : 'poor'
+    };
   };
 
   const calculateDailyTotals = () => {
@@ -88,19 +120,50 @@ export default function MealPlanGenerator({
           </h2>
           
           <p className="text-gray-600 mb-6 max-w-md mx-auto">
-            Get personalized daily meal recommendations based on your goals and preferences. 
-            AI will create a complete plan with exact portions and nutritional breakdowns.
+            Get personalized daily meal recommendations. Choose between AI-generated suggestions 
+            or plans using only foods you have available.
           </p>
 
           {settings.apiKey ? (
-            <button
-              onClick={handleGeneratePlan}
-              disabled={isGenerating}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl hover:from-amber-600 hover:to-orange-600 transition-all font-medium shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Sparkles className="w-5 h-5" />
-              Generate My Daily Meal Plan
-            </button>
+            <div className="space-y-4">
+              {/* Pantry-Based Planning */}
+              <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Package className="w-5 h-5 text-emerald-600" />
+                  <h3 className="font-semibold text-emerald-800">Plan from My Pantry</h3>
+                </div>
+                <p className="text-sm text-emerald-700 mb-3">
+                  Enter foods you have available and get a precise plan using only those ingredients
+                </p>
+                <button
+                  onClick={() => setShowPantryInput(true)}
+                  disabled={isGenerating}
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all font-medium disabled:opacity-50"
+                >
+                  <Package className="w-4 h-4" />
+                  Plan from Available Foods
+                </button>
+              </div>
+
+              {/* Generic Planning */}
+              <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Sparkles className="w-5 h-5 text-gray-600" />
+                  <h3 className="font-semibold text-gray-800">AI-Generated Suggestions</h3>
+                </div>
+                <p className="text-sm text-gray-600 mb-3">
+                  Get meal suggestions based on your goals and preferences
+                </p>
+                <button
+                  onClick={handleGeneratePlan}
+                  disabled={isGenerating}
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all font-medium disabled:opacity-50"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  Generate Suggestions
+                </button>
+              </div>
+            </div>
           ) : (
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
               <p className="text-amber-800 text-sm">
@@ -192,15 +255,53 @@ export default function MealPlanGenerator({
   return (
     <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
+      <div className="flex items-start justify-between mb-6">
+        <div className="flex-1">
           <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
             <ChefHat className="w-6 h-6 text-amber-500" />
             Today's Smart Plan
+            {currentPlan.sourceType === 'pantry_based' && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-100 text-emerald-700 text-xs rounded-full">
+                <Package className="w-3 h-3" />
+                From Pantry
+              </span>
+            )}
           </h2>
           {currentPlan.summary && (
             <p className="text-sm text-gray-600 mt-1">{currentPlan.summary}</p>
           )}
+          
+          {/* Accuracy Indicator */}
+          {(() => {
+            const accuracy = calculateAccuracy();
+            if (!accuracy) return null;
+            
+            return (
+              <div className="flex items-center gap-2 mt-2">
+                <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
+                  accuracy.status === 'excellent' ? 'bg-green-100 text-green-700' :
+                  accuracy.status === 'good' ? 'bg-yellow-100 text-yellow-700' :
+                  'bg-red-100 text-red-700'
+                }`}>
+                  <Target className="w-3 h-3" />
+                  {accuracy.isAccurate ? (
+                    <>
+                      ✓ {accuracy.accuracy}% accurate ({dailyTotals.calories} / {settings.dailyCalorieGoal} cal)
+                    </>
+                  ) : (
+                    <>
+                      ⚠ {accuracy.variance} cal variance ({dailyTotals.calories} / {settings.dailyCalorieGoal} cal)
+                    </>
+                  )}
+                </div>
+                {currentPlan.regenerationCount && currentPlan.regenerationCount > 1 && (
+                  <span className="text-xs text-gray-500">
+                    (Generated in {currentPlan.regenerationCount} attempts)
+                  </span>
+                )}
+              </div>
+            );
+          })()}
         </div>
         
         <div className="flex items-center gap-2">
@@ -284,6 +385,20 @@ export default function MealPlanGenerator({
           onSave={onSaveTemplate}
         />
       )}
+
+      {/* Pantry Input Modal */}
+      <PantryInput
+        isOpen={showPantryInput}
+        onClose={() => setShowPantryInput(false)}
+        initialData={userPantry ? {
+          breakfast: userPantry.breakfast,
+          lunch: userPantry.lunch,
+          dinner: userPantry.dinner,
+          snacks: userPantry.snacks,
+        } : undefined}
+        onSave={handleSavePantry}
+        onGeneratePlan={handleGeneratePlanFromPantry}
+      />
     </div>
   );
 }

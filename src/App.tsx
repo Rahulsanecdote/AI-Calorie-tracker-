@@ -102,9 +102,11 @@ function App() {
   const {
     currentPlan,
     templates,
+    userPantry,
     isGenerating,
     error: mealPlanError,
     generateMealPlan,
+    generateMealPlanFromPantry,
     updateFoodItem,
     addMealToLog,
     regenerateMealPlan,
@@ -112,6 +114,7 @@ function App() {
     loadTemplate,
     deleteTemplate,
     clearPlan,
+    savePantry,
   } = useMealPlanner(settings, handleAddMeal);
 
   const handleDeleteMeal = useCallback((id: string) => {
@@ -158,9 +161,12 @@ function App() {
           settings={settings}
           currentPlan={currentPlan}
           templates={templates}
+          userPantry={userPantry}
           isGenerating={isGenerating}
           error={mealPlanError}
           onGeneratePlan={generateMealPlan}
+          onGeneratePlanFromPantry={generateMealPlanFromPantry}
+          onSavePantry={savePantry}
           onRegeneratePlan={regenerateMealPlan}
           onSaveTemplate={saveTemplate}
           onLoadTemplate={loadTemplate}

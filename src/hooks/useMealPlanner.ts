@@ -7,18 +7,23 @@ import {
   FoodItem,
   MealSection,
   UserSettings,
+  PantryData,
+  PantryInputData,
 } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 
 const MEAL_PLAN_STORAGE_KEY = 'meal-plans';
 const TEMPLATE_STORAGE_KEY = 'meal-plan-templates';
+const PANTRY_STORAGE_KEY = 'user-pantry';
 
 interface UseMealPlannerResult {
   currentPlan: DailyMealPlan | null;
   templates: MealPlanTemplate[];
+  userPantry: PantryData | null;
   isGenerating: boolean;
   error: string | null;
   generateMealPlan: (request: MealPlanGenerationRequest) => Promise<void>;
+  generateMealPlanFromPantry: (pantryData: PantryInputData) => Promise<void>;
   updateFoodItem: (mealType: string, itemId: string, newWeight: number) => void;
   addMealToLog: (mealType: string) => void;
   regenerateMealPlan: () => Promise<void>;
@@ -26,6 +31,8 @@ interface UseMealPlannerResult {
   loadTemplate: (templateId: string) => void;
   deleteTemplate: (templateId: string) => void;
   clearPlan: () => void;
+  savePantry: (pantryData: PantryInputData, saveAsDefault: boolean) => void;
+  loadPantry: () => PantryData | null;
 }
 
 export const useMealPlanner = (
@@ -34,6 +41,7 @@ export const useMealPlanner = (
 ): UseMealPlannerResult => {
   const [currentPlan, setCurrentPlan] = useState<DailyMealPlan | null>(null);
   const [templates, setTemplates] = useState<MealPlanTemplate[]>([]);
+  const [userPantry, setUserPantry] = useState<PantryData | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,9 +50,14 @@ export const useMealPlanner = (
     try {
       const storedPlans = localStorage.getItem(MEAL_PLAN_STORAGE_KEY);
       const storedTemplates = localStorage.getItem(TEMPLATE_STORAGE_KEY);
+      const storedPantry = localStorage.getItem(PANTRY_STORAGE_KEY);
       
       if (storedTemplates) {
         setTemplates(JSON.parse(storedTemplates));
+      }
+      
+      if (storedPantry) {
+        setUserPantry(JSON.parse(storedPantry));
       }
     } catch (err) {
       console.error('Error loading meal plan data:', err);
@@ -63,11 +76,11 @@ export const useMealPlanner = (
     }
   };
 
-  const parseAIResponse = (response: MealPlanGenerationResponse): DailyMealPlan => {
+  const parseAIResponse = (response: MealPlanGenerationResponse, usedPantry?: PantryData, regenerationCount: number = 1): DailyMealPlan => {
     const macroRatio = calculateMacroRatio(settings.goal || 'maintain');
     
     const meals: MealSection[] = response.meals.map(meal => {
-      const items: FoodItem[] = meal.items.map(item => ({
+      const items: FoodItem[] = meal.foods.map(item => ({
         id: uuidv4(),
         name: item.name,
         weightGrams: item.weight,
@@ -77,12 +90,13 @@ export const useMealPlanner = (
         fat: item.fat,
         micronutrients: { fiber: item.fiber },
         emoji: item.emoji,
+        isFromPantry: !!usedPantry,
       }));
 
-      const totalCalories = items.reduce((sum, item) => sum + item.calories, 0);
-      const totalProtein = items.reduce((sum, item) => sum + item.protein, 0);
-      const totalCarbs = items.reduce((sum, item) => sum + item.carbs, 0);
-      const totalFat = items.reduce((sum, item) => sum + item.fat, 0);
+      const totalCalories = meal.totals?.calories || items.reduce((sum, item) => sum + item.calories, 0);
+      const totalProtein = meal.totals?.protein || items.reduce((sum, item) => sum + item.protein, 0);
+      const totalCarbs = meal.totals?.carbs || items.reduce((sum, item) => sum + item.carbs, 0);
+      const totalFat = meal.totals?.fat || items.reduce((sum, item) => sum + item.fat, 0);
 
       return {
         type: meal.type,
@@ -91,12 +105,17 @@ export const useMealPlanner = (
         totalProtein,
         totalCarbs,
         totalFat,
+        timeEstimate: meal.time,
       };
     });
 
+    const actualTotalCalories = response.dailyTotals?.calories || meals.reduce((sum, meal) => sum + meal.totalCalories, 0);
     const totalProtein = meals.reduce((sum, meal) => sum + meal.totalProtein, 0);
     const totalCarbs = meals.reduce((sum, meal) => sum + meal.totalCarbs, 0);
     const totalFat = meals.reduce((sum, meal) => sum + meal.totalFat, 0);
+
+    // Calculate accuracy variance
+    const accuracyVariance = Math.abs(actualTotalCalories - settings.dailyCalorieGoal);
 
     return {
       id: uuidv4(),
@@ -107,8 +126,166 @@ export const useMealPlanner = (
       macroRatio,
       summary: response.summary,
       createdAt: new Date().toISOString(),
+      
+      // Enhanced fields for pantry-based planning
+      accuracyVariance,
+      sourceType: usedPantry ? 'pantry_based' : 'generic',
+      usedPantry,
+      regenerationCount,
     };
   };
+
+  // Enhanced pantry-based meal plan generation
+  const generateMealPlanFromPantry = useCallback(async (pantryData: PantryInputData, regenerationCount: number = 1) => {
+    if (!settings.apiKey) {
+      setError('Please set your OpenAI API key in settings');
+      return;
+    }
+
+    setIsGenerating(true);
+    setError(null);
+
+    // Convert pantry input to PantryData format
+    const pantry: PantryData = {
+      breakfast: pantryData.breakfast,
+      lunch: pantryData.lunch,
+      dinner: pantryData.dinner,
+      snacks: pantryData.snacks,
+      updatedAt: new Date().toISOString(),
+    };
+
+    const systemPrompt = `You are a precision nutrition calculator. Generate an exact daily meal plan using ONLY the foods provided by the user.
+
+CRITICAL CONSTRAINTS:
+1. ONLY use foods from the available lists below - NO other foods allowed
+2. Calculate EXACT gram amounts to hit the calorie target precisely
+3. Total daily calories MUST equal ${settings.dailyCalorieGoal} (±20 calories maximum)
+4. Use strict meal calorie distribution:
+   - Breakfast: ${Math.round(settings.dailyCalorieGoal * 0.27)} calories (27%)
+   - Lunch: ${Math.round(settings.dailyCalorieGoal * 0.38)} calories (38%)
+   - Dinner: ${Math.round(settings.dailyCalorieGoal * 0.32)} calories (32%)
+   - Snack: ${Math.round(settings.dailyCalorieGoal * 0.03)} calories (3%)
+
+5. Each meal must have 2-4 food items with precise gram weights
+6. Calculate exact nutritional values for each food item
+7. Use appropriate food emojis
+
+OUTPUT FORMAT (MUST BE VALID JSON):
+{
+  "summary": "Brief nutritional theme description",
+  "meals": [
+    {
+      "type": "breakfast",
+      "time": "7:00 AM",
+      "foods": [
+        { "name": "Food Name", "weight": 100, "unit": "g", "calories": 150, "protein": 5, "carbs": 27, "fat": 3, "fiber": 4, "emoji": "🥣" }
+      ],
+      "totals": { "calories": 540, "protein": 20, "carbs": 65, "fat": 15 }
+    }
+  ],
+  "dailyTotals": {
+    "calories": ${settings.dailyCalorieGoal},
+    "protein": 150,
+    "carbs": 225,
+    "fat": 67,
+    "fiber": 25
+  }
+}
+
+IMPORTANT: The dailyTotals.calories MUST equal ${settings.dailyCalorieGoal}`;
+
+    const userPrompt = `Generate a precise meal plan using ONLY these available foods:
+
+AVAILABLE FOODS:
+- Breakfast: ${pantry.breakfast}
+- Lunch: ${pantry.lunch}
+- Dinner: ${pantry.dinner}
+- Snacks: ${pantry.snacks}
+
+USER PROFILE:
+- Daily calorie goal: ${settings.dailyCalorieGoal} calories
+- Goal: ${settings.goal || 'maintain'}
+- Activity level: ${settings.activityLevel || 'moderately_active'}
+- Dietary preferences: ${settings.dietaryPreferences?.join(', ') || 'None specified'}
+
+CRITICAL REQUIREMENTS:
+1. Use ONLY foods from the available lists above
+2. Calculate precise gram amounts to reach exactly ${settings.dailyCalorieGoal} calories
+3. Distribute calories: Breakfast ${Math.round(settings.dailyCalorieGoal * 0.27)}cal, Lunch ${Math.round(settings.dailyCalorieGoal * 0.38)}cal, Dinner ${Math.round(settings.dailyCalorieGoal * 0.32)}cal, Snack ${Math.round(settings.dailyCalorieGoal * 0.03)}cal
+4. Provide exact nutritional breakdown for each food item
+5. If regeneration #${regenerationCount}, adjust gram amounts to improve accuracy
+
+Return ONLY valid JSON, no markdown formatting:`;
+
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${settings.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'gpt-3.5-turbo',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          temperature: 0.3, // Lower temperature for more precise calculations
+          max_tokens: 2000,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        if (response.status === 401) {
+          throw new Error('Invalid API key. Please check your OpenAI API key in settings.');
+        } else if (response.status === 429) {
+          throw new Error('Rate limit exceeded. Please try again in a moment.');
+        } else {
+          throw new Error(errorData.error?.message || 'Failed to generate meal plan');
+        }
+      }
+
+      const data = await response.json();
+      const content = data.choices[0]?.message?.content;
+
+      if (!content) {
+        throw new Error('No response from AI');
+      }
+
+      // Clean up the response (remove markdown code blocks if present)
+      const cleanedContent = content.replace(/```json\s*|\s*```/g, '').trim();
+      
+      const parsedResponse: MealPlanGenerationResponse = JSON.parse(cleanedContent);
+      
+      // Validate accuracy
+      const actualCalories = parsedResponse.dailyTotals?.calories || 0;
+      const accuracyVariance = Math.abs(actualCalories - settings.dailyCalorieGoal);
+      
+      // If accuracy is poor and we haven't tried too many times, regenerate
+      if (accuracyVariance > 20 && regenerationCount < 3) {
+        console.log(`Accuracy variance ${accuracyVariance} calories, regenerating...`);
+        await generateMealPlanFromPantry(pantryData, regenerationCount + 1);
+        return;
+      }
+      
+      const mealPlan = parseAIResponse(parsedResponse, pantry, regenerationCount);
+      
+      setCurrentPlan(mealPlan);
+      
+      // Save to localStorage
+      const existingPlans = JSON.parse(localStorage.getItem(MEAL_PLAN_STORAGE_KEY) || '[]');
+      const updatedPlans = existingPlans.filter((plan: DailyMealPlan) => plan.date !== mealPlan.date);
+      updatedPlans.push(mealPlan);
+      localStorage.setItem(MEAL_PLAN_STORAGE_KEY, JSON.stringify(updatedPlans));
+      
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to generate meal plan';
+      setError(errorMessage);
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [settings, parseAIResponse]);
 
   const generateMealPlan = useCallback(async (request: MealPlanGenerationRequest) => {
     if (!settings.apiKey) {
@@ -350,12 +527,43 @@ Respond with only the JSON object, no markdown formatting.`;
     setCurrentPlan(null);
   }, []);
 
+  const savePantry = useCallback((pantryData: PantryInputData, saveAsDefault: boolean) => {
+    const pantry: PantryData = {
+      breakfast: pantryData.breakfast,
+      lunch: pantryData.lunch,
+      dinner: pantryData.dinner,
+      snacks: pantryData.snacks,
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (saveAsDefault) {
+      localStorage.setItem(PANTRY_STORAGE_KEY, JSON.stringify(pantry));
+      setUserPantry(pantry);
+    }
+  }, []);
+
+  const loadPantry = useCallback((): PantryData | null => {
+    try {
+      const storedPantry = localStorage.getItem(PANTRY_STORAGE_KEY);
+      if (storedPantry) {
+        const pantry = JSON.parse(storedPantry);
+        setUserPantry(pantry);
+        return pantry;
+      }
+    } catch (err) {
+      console.error('Error loading pantry data:', err);
+    }
+    return null;
+  }, []);
+
   return {
     currentPlan,
     templates,
+    userPantry,
     isGenerating,
     error,
     generateMealPlan,
+    generateMealPlanFromPantry,
     updateFoodItem,
     addMealToLog,
     regenerateMealPlan,
@@ -363,5 +571,7 @@ Respond with only the JSON object, no markdown formatting.`;
     loadTemplate,
     deleteTemplate,
     clearPlan,
+    savePantry,
+    loadPantry,
   };
 };

@@ -28,6 +28,7 @@ export interface UserSettings {
   activityLevel?: 'sedentary' | 'lightly_active' | 'moderately_active' | 'very_active' | 'extra_active';
   goal?: 'weight_loss' | 'maintain' | 'muscle_gain';
   dietaryPreferences?: string[]; // e.g., ['vegetarian', 'high_protein', 'low_carb']
+  defaultPantry?: PantryData; // User's saved default pantry
 }
 
 export interface DailyTotals {
@@ -75,6 +76,9 @@ export interface FoodItem {
   fat: number;
   micronutrients?: Micronutrients;
   emoji: string;
+  // Enhanced fields for pantry-based planning
+  isFromPantry?: boolean; // Indicates if food was from user's available list
+  availableInPantry?: boolean; // Food available in user's pantry
 }
 
 export interface MealSection {
@@ -84,6 +88,7 @@ export interface MealSection {
   totalProtein: number;
   totalCarbs: number;
   totalFat: number;
+  timeEstimate?: string; // e.g., "7:00 AM"
 }
 
 export interface DailyMealPlan {
@@ -95,6 +100,12 @@ export interface DailyMealPlan {
   macroRatio: { protein: number; carbs: number; fat: number }; // percentages
   summary?: string;
   createdAt: string;
+  
+  // Enhanced fields for pantry-based planning
+  accuracyVariance?: number; // Difference between target and actual calories
+  sourceType: 'generic' | 'pantry_based';
+  usedPantry?: PantryData; // The pantry data used for generation
+  regenerationCount?: number; // Number of attempts made to reach accuracy
 }
 
 export interface MealPlanTemplate {
@@ -112,13 +123,16 @@ export interface MealPlanGenerationRequest {
   activityLevel: UserSettings['activityLevel'];
   dietaryPreferences: string[];
   existingPlan?: DailyMealPlan; // for regeneration
+  availableFoods?: PantryData; // User's available foods for pantry-based generation
+  generateFromPantry?: boolean; // Flag to use pantry-based generation
 }
 
 export interface MealPlanGenerationResponse {
   summary: string;
-  meals: {
+  meals: Array<{
     type: MealCategory;
-    items: Array<{
+    time: string;
+    foods: Array<{
       name: string;
       weight: number;
       unit: string;
@@ -129,5 +143,43 @@ export interface MealPlanGenerationResponse {
       fiber?: number;
       emoji: string;
     }>;
-  }[];
+    totals: {
+      calories: number;
+      protein: number;
+      carbs: number;
+      fat: number;
+    };
+  }>;
+  dailyTotals: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+    fiber: number;
+  };
+}
+
+// Pantry management interfaces
+export interface PantryData {
+  breakfast: string; // comma-separated foods
+  lunch: string; // comma-separated foods
+  dinner: string; // comma-separated foods
+  snacks: string; // comma-separated foods
+  updatedAt: string;
+}
+
+// Pantry input component props
+export interface PantryInputData {
+  breakfast: string;
+  lunch: string;
+  dinner: string;
+  snacks: string;
+}
+
+export interface PantryInputProps {
+  isOpen: boolean;
+  onClose: () => void;
+  initialData?: PantryInputData;
+  onSave: (pantryData: PantryInputData, saveAsDefault: boolean) => void;
+  onGeneratePlan: (pantryData: PantryInputData) => void;
 }
