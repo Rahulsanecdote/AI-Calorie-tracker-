@@ -233,7 +233,7 @@ Return ONLY valid JSON, no markdown formatting:`;
           'Authorization': `Bearer ${settings.apiKey}`,
         },
         body: JSON.stringify({
-          model: 'gpt-3.5-turbo',
+          model: 'gpt-4o-mini',
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt },
@@ -264,15 +264,30 @@ Return ONLY valid JSON, no markdown formatting:`;
       // Clean up the response (remove markdown code blocks if present)
       const cleanedContent = content.replace(/```json\s*|\s*```/g, '').trim();
       
-      const parsedResponse: MealPlanGenerationResponse = JSON.parse(cleanedContent);
+      let parsedResponse: MealPlanGenerationResponse;
+      try {
+        parsedResponse = JSON.parse(cleanedContent);
+      } catch (parseError) {
+        console.error('Failed to parse AI response as JSON:', parseError);
+        console.error('Raw AI response:', content);
+        throw new Error('AI returned invalid response format. Please try again.');
+      }
+      
+      // Validate response structure
+      if (!parsedResponse.meals || !Array.isArray(parsedResponse.meals)) {
+        console.error('Invalid response structure:', parsedResponse);
+        throw new Error('AI returned invalid meal plan structure. Please try again.');
+      }
       
       // Validate accuracy
       const actualCalories = parsedResponse.dailyTotals?.calories || 0;
       const accuracyVariance = Math.abs(actualCalories - settings.dailyCalorieGoal);
       
-      // If accuracy is poor and we haven't tried too many times, regenerate
+      console.log(`Generated meal plan - Target: ${settings.dailyCalorieGoal}, Actual: ${actualCalories}, Variance: ${accuracyVariance}`);
+      
+      // If accuracy is poor and we haven't tried too many times, regenerate (with limit)
       if (accuracyVariance > 20 && regenerationCount < 3) {
-        console.log(`Accuracy variance ${accuracyVariance} calories, regenerating...`);
+        console.log(`Accuracy variance ${accuracyVariance} calories, regenerating... (attempt ${regenerationCount})`);
         await generateMealPlanFromPantry(pantryData, regenerationCount + 1);
         return;
       }
@@ -288,7 +303,9 @@ Return ONLY valid JSON, no markdown formatting:`;
       localStorage.setItem(MEAL_PLAN_STORAGE_KEY, JSON.stringify(updatedPlans));
       
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to generate meal plan';
+      console.error('Pantry meal plan generation error:', err);
+      console.error('Pantry data used:', pantry);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to generate meal plan from pantry';
       setError(errorMessage);
     } finally {
       setIsGenerating(false);
@@ -353,7 +370,7 @@ Respond with only the JSON object, no markdown formatting.`;
           'Authorization': `Bearer ${settings.apiKey}`,
         },
         body: JSON.stringify({
-          model: 'gpt-3.5-turbo',
+          model: 'gpt-4o-mini',
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt },
@@ -397,6 +414,7 @@ Respond with only the JSON object, no markdown formatting.`;
       localStorage.setItem(MEAL_PLAN_STORAGE_KEY, JSON.stringify(updatedPlans));
       
     } catch (err) {
+      console.error('Regular meal plan generation error:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to generate meal plan';
       setError(errorMessage);
     } finally {
