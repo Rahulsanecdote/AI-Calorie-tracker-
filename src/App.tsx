@@ -7,8 +7,10 @@ import {
   MealList,
   SettingsModal,
   EditMealModal,
+  MealPlanGenerator,
 } from './components';
 import { useNutritionAI } from './hooks/useNutritionAI';
+import { useMealPlanner } from './hooks/useMealPlanner';
 import useLocalStorage from './hooks/useLocalStorage';
 import {
   Meal,
@@ -26,6 +28,13 @@ const defaultSettings: UserSettings = {
   proteinGoal_g: 150,
   carbsGoal_g: 250,
   fatGoal_g: 65,
+  // New fields for meal planning
+  age: 30,
+  weight: 70,
+  height: 175,
+  activityLevel: 'moderately_active',
+  goal: 'maintain',
+  dietaryPreferences: [],
 };
 
 function App() {
@@ -64,7 +73,7 @@ function App() {
     );
   }, [meals, currentDate]);
 
-  const handleAddMeal = async (description: string, category: MealCategory) => {
+  async function handleAddMeal(description: string, category: MealCategory) {
     setAiError(null);
 
     const result = await analyzeFood(description, settings.apiKey);
@@ -87,7 +96,23 @@ function App() {
 
       setMeals((prev) => [...prev, newMeal]);
     }
-  };
+  }
+
+  // Meal planner hook - pass the handleAddMeal function
+  const {
+    currentPlan,
+    templates,
+    isGenerating,
+    error: mealPlanError,
+    generateMealPlan,
+    updateFoodItem,
+    addMealToLog,
+    regenerateMealPlan,
+    saveTemplate,
+    loadTemplate,
+    deleteTemplate,
+    clearPlan,
+  } = useMealPlanner(settings, handleAddMeal);
 
   const handleDeleteMeal = useCallback((id: string) => {
     setMeals((prev) => prev.filter((meal) => meal.id !== id));
@@ -128,12 +153,28 @@ function App() {
 
         <CalorieDashboard totals={dailyTotals} settings={settings} />
 
+        {/* Meal Plan Generator */}
+        <MealPlanGenerator
+          settings={settings}
+          currentPlan={currentPlan}
+          templates={templates}
+          isGenerating={isGenerating}
+          error={mealPlanError}
+          onGeneratePlan={generateMealPlan}
+          onRegeneratePlan={regenerateMealPlan}
+          onSaveTemplate={saveTemplate}
+          onLoadTemplate={loadTemplate}
+          onClearPlan={clearPlan}
+        />
+
+        {/* Manual Meal Input */}
         <MealInput
           onSubmit={handleAddMeal}
           isLoading={isLoading}
           error={aiError}
         />
 
+        {/* Today's Meals List */}
         <div className="bg-white rounded-2xl shadow-sm p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">
             Today's Meals
@@ -161,7 +202,7 @@ function App() {
       />
 
       <footer className="text-center py-6 text-sm text-gray-400">
-        <p>NutriAI - AI-Powered Calorie Tracking</p>
+        <p>NutriAI - AI-Powered Calorie Tracking & Meal Planning</p>
       </footer>
     </div>
   );

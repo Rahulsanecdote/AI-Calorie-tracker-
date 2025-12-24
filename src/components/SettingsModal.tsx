@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Save, Settings, Key, Target } from 'lucide-react';
+import { X, Save, Settings, Key, Target, User } from 'lucide-react';
 import { UserSettings } from '../types';
 
 interface SettingsModalProps {
@@ -11,7 +11,7 @@ interface SettingsModalProps {
 
 export default function SettingsModal({ isOpen, onClose, settings, onSave }: SettingsModalProps) {
   const [localSettings, setLocalSettings] = useState<UserSettings>(settings);
-  const [activeTab, setActiveTab] = useState<'goals' | 'api'>('goals');
+  const [activeTab, setActiveTab] = useState<'goals' | 'profile' | 'api'>('goals');
 
   useEffect(() => {
     setLocalSettings(settings);
@@ -22,11 +22,23 @@ export default function SettingsModal({ isOpen, onClose, settings, onSave }: Set
     onClose();
   };
 
+  const toggleDietaryPreference = (preference: string) => {
+    const currentPrefs = localSettings.dietaryPreferences || [];
+    const updatedPrefs = currentPrefs.includes(preference)
+      ? currentPrefs.filter(p => p !== preference)
+      : [...currentPrefs, preference];
+    
+    setLocalSettings({
+      ...localSettings,
+      dietaryPreferences: updatedPrefs,
+    });
+  };
+
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-hidden shadow-xl">
+      <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-hidden shadow-xl">
         <div className="flex items-center justify-between p-4 border-b border-gray-100">
           <div className="flex items-center gap-2">
             <Settings className="w-5 h-5 text-gray-600" />
@@ -51,6 +63,17 @@ export default function SettingsModal({ isOpen, onClose, settings, onSave }: Set
           >
             <Target className="w-4 h-4 inline mr-2" />
             Goals
+          </button>
+          <button
+            onClick={() => setActiveTab('profile')}
+            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+              activeTab === 'profile'
+                ? 'text-emerald-600 border-b-2 border-emerald-500'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <User className="w-4 h-4 inline mr-2" />
+            Profile
           </button>
           <button
             onClick={() => setActiveTab('api')}
@@ -177,6 +200,146 @@ export default function SettingsModal({ isOpen, onClose, settings, onSave }: Set
             </div>
           )}
 
+          {activeTab === 'profile' && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Age
+                  </label>
+                  <input
+                    type="number"
+                    value={localSettings.age || ''}
+                    onChange={(e) =>
+                      setLocalSettings({
+                        ...localSettings,
+                        age: parseInt(e.target.value) || undefined,
+                      })
+                    }
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    placeholder="30"
+                    min="10"
+                    max="100"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Weight (kg)
+                  </label>
+                  <input
+                    type="number"
+                    value={localSettings.weight || ''}
+                    onChange={(e) =>
+                      setLocalSettings({
+                        ...localSettings,
+                        weight: parseFloat(e.target.value) || undefined,
+                      })
+                    }
+                    className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                    placeholder="70"
+                    min="30"
+                    max="300"
+                    step="0.1"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Height (cm)
+                </label>
+                <input
+                  type="number"
+                  value={localSettings.height || ''}
+                  onChange={(e) =>
+                    setLocalSettings({
+                      ...localSettings,
+                      height: parseInt(e.target.value) || undefined,
+                    })
+                  }
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  placeholder="175"
+                  min="100"
+                  max="250"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Activity Level
+                </label>
+                <select
+                  value={localSettings.activityLevel || 'moderately_active'}
+                  onChange={(e) =>
+                    setLocalSettings({
+                      ...localSettings,
+                      activityLevel: e.target.value as UserSettings['activityLevel'],
+                    })
+                  }
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                >
+                  <option value="sedentary">Sedentary (little/no exercise)</option>
+                  <option value="lightly_active">Lightly Active (light exercise 1-3 days/week)</option>
+                  <option value="moderately_active">Moderately Active (moderate exercise 3-5 days/week)</option>
+                  <option value="very_active">Very Active (hard exercise 6-7 days/week)</option>
+                  <option value="extra_active">Extra Active (very hard exercise, physical job)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Goal
+                </label>
+                <select
+                  value={localSettings.goal || 'maintain'}
+                  onChange={(e) =>
+                    setLocalSettings({
+                      ...localSettings,
+                      goal: e.target.value as UserSettings['goal'],
+                    })
+                  }
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                >
+                  <option value="weight_loss">Weight Loss</option>
+                  <option value="maintain">Maintain Weight</option>
+                  <option value="muscle_gain">Muscle Gain</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Dietary Preferences
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    'vegetarian',
+                    'vegan',
+                    'gluten-free',
+                    'dairy-free',
+                    'high-protein',
+                    'low-carb',
+                    'mediterranean',
+                    'keto',
+                  ].map((preference) => (
+                    <button
+                      key={preference}
+                      type="button"
+                      onClick={() => toggleDietaryPreference(preference)}
+                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                        (localSettings.dietaryPreferences || []).includes(preference)
+                          ? 'bg-emerald-500 text-white'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      {preference.replace('-', ' ')}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {activeTab === 'api' && (
             <div className="space-y-4">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -184,7 +347,7 @@ export default function SettingsModal({ isOpen, onClose, settings, onSave }: Set
                   OpenAI API Key Required
                 </h3>
                 <p className="text-sm text-blue-600">
-                  To use the AI food analysis feature, you need an OpenAI API key.
+                  To use the AI food analysis and meal planning features, you need an OpenAI API key.
                   Your key is stored locally and never sent to our servers.
                 </p>
               </div>
