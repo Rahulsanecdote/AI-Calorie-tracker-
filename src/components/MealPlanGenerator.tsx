@@ -56,12 +56,22 @@ export default function MealPlanGenerator({
   }, []);
 
   const handleGeneratePlan = async () => {
+    console.log('🚀 handleGeneratePlan called');
+    console.log('📊 Settings:', {
+      apiKey: settings.apiKey ? 'Present' : 'Missing',
+      dailyCalorieGoal: settings.dailyCalorieGoal,
+      goal: settings.goal
+    });
+    
     const request: MealPlanGenerationRequest = {
       targetCalories: settings.dailyCalorieGoal,
       goal: settings.goal || 'maintain',
       activityLevel: settings.activityLevel || 'moderately_active',
       dietaryPreferences: settings.dietaryPreferences || [],
     };
+    
+    console.log('📝 Request object:', request);
+    console.log('📡 Calling onGeneratePlan...');
     await onGeneratePlan(request);
   };
 
@@ -136,7 +146,10 @@ export default function MealPlanGenerator({
                   Enter foods you have available and get a precise plan using only those ingredients
                 </p>
                 <button
-                  onClick={() => setShowPantryInput(true)}
+                  onClick={() => {
+                    console.log('🥘 Pantry button clicked!');
+                    setShowPantryInput(true);
+                  }}
                   disabled={isGenerating}
                   className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all font-medium disabled:opacity-50"
                 >
@@ -155,7 +168,10 @@ export default function MealPlanGenerator({
                   Get meal suggestions based on your goals and preferences
                 </p>
                 <button
-                  onClick={handleGeneratePlan}
+                  onClick={() => {
+                    console.log('✨ AI Suggestions button clicked!');
+                    handleGeneratePlan();
+                  }}
                   disabled={isGenerating}
                   className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-all font-medium disabled:opacity-50"
                 >

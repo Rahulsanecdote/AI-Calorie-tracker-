@@ -332,7 +332,7 @@ Return ONLY valid JSON, no markdown formatting:`;
   }, [settings]);
 
   const generateMealPlan = useCallback(async (request: MealPlanGenerationRequest) => {
-    console.log('🔥 generateMealPlan called', { request, apiKey: settings.apiKey ? 'Present' : 'Missing' });
+    console.log('🔥🔥 generateMealPlan called from hook', { request, apiKey: settings.apiKey ? 'Present' : 'Missing' });
     
     if (!settings.apiKey) {
       console.error('❌ No API key found');
