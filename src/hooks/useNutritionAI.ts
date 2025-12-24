@@ -12,6 +12,8 @@ export const useNutritionAI = (): UseNutritionAIResult => {
   const [error, setError] = useState<string | null>(null);
 
   const analyzeFood = useCallback(async (description: string, apiKey: string): Promise<AIResponse | null> => {
+    console.log('🍎 analyzeFood called', { description, apiKey: apiKey ? 'Present' : 'Missing' });
+    
     if (!description.trim()) {
       setError('Please enter a food description');
       return null;
@@ -22,6 +24,7 @@ export const useNutritionAI = (): UseNutritionAIResult => {
       return null;
     }
 
+    console.log('✅ Starting food analysis...');
     setIsLoading(true);
     setError(null);
 
@@ -49,25 +52,32 @@ Output format:
 Respond with only the JSON object, no markdown formatting, no additional text.`;
 
     try {
+      console.log('🌐 Making food analysis API call to OpenAI...');
+      
+      const requestBody = {
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.3,
+        max_tokens: 200,
+      };
+      
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiKey}`,
         },
-        body: JSON.stringify({
-          model: 'gpt-3.5-turbo',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
-          ],
-          temperature: 0.3,
-          max_tokens: 200,
-        }),
+        body: JSON.stringify(requestBody),
       });
+
+      console.log('📥 Food analysis response status:', response.status, response.statusText);
 
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('❌ Food analysis API Error:', errorData);
         
         if (response.status === 401) {
           throw new Error('Invalid API key. Please check your OpenAI API key in settings.');
@@ -79,11 +89,16 @@ Respond with only the JSON object, no markdown formatting, no additional text.`;
       }
 
       const data = await response.json();
+      console.log('✅ Food analysis response received:', data);
+      
       const content = data.choices[0]?.message?.content;
 
       if (!content) {
+        console.error('❌ No content in food analysis response');
         throw new Error('No response from AI');
       }
+      
+      console.log('📝 Food analysis content:', content);
 
       // Clean up the response (remove markdown code blocks if present)
       const cleanedContent = content.replace(/```json\s*|\s*```/g, '').trim();

@@ -145,11 +145,15 @@ export const useMealPlanner = (
 
   // Enhanced pantry-based meal plan generation
   const generateMealPlanFromPantry = useCallback(async (pantryData: PantryInputData, regenerationCount: number = 1) => {
+    console.log('🔥 generateMealPlanFromPantry called', { pantryData, regenerationCount, apiKey: settings.apiKey ? 'Present' : 'Missing' });
+    
     if (!settings.apiKey) {
+      console.error('❌ No API key found');
       setError('Please set your OpenAI API key in settings');
       return;
     }
 
+    console.log('✅ Starting meal plan generation...');
     setIsGenerating(true);
     setError(null);
 
@@ -226,25 +230,35 @@ CRITICAL REQUIREMENTS:
 Return ONLY valid JSON, no markdown formatting:`;
 
     try {
+      console.log('🌐 Making API call to OpenAI...');
+      console.log('📝 User prompt preview:', userPrompt.substring(0, 200) + '...');
+      
+      const requestBody = {
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.3, // Lower temperature for more precise calculations
+        max_tokens: 2000,
+      };
+      
+      console.log('📤 Request body:', JSON.stringify(requestBody, null, 2));
+      
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${settings.apiKey}`,
         },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
-          ],
-          temperature: 0.3, // Lower temperature for more precise calculations
-          max_tokens: 2000,
-        }),
+        body: JSON.stringify(requestBody),
       });
+
+      console.log('📥 Response status:', response.status, response.statusText);
 
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('❌ API Error:', errorData);
         if (response.status === 401) {
           throw new Error('Invalid API key. Please check your OpenAI API key in settings.');
         } else if (response.status === 429) {
@@ -255,11 +269,16 @@ Return ONLY valid JSON, no markdown formatting:`;
       }
 
       const data = await response.json();
+      console.log('✅ API Response received:', data);
+      
       const content = data.choices[0]?.message?.content;
 
       if (!content) {
+        console.error('❌ No content in AI response');
         throw new Error('No response from AI');
       }
+      
+      console.log('📝 AI Response content:', content);
 
       // Clean up the response (remove markdown code blocks if present)
       const cleanedContent = content.replace(/```json\s*|\s*```/g, '').trim();
@@ -313,11 +332,15 @@ Return ONLY valid JSON, no markdown formatting:`;
   }, [settings]);
 
   const generateMealPlan = useCallback(async (request: MealPlanGenerationRequest) => {
+    console.log('🔥 generateMealPlan called', { request, apiKey: settings.apiKey ? 'Present' : 'Missing' });
+    
     if (!settings.apiKey) {
+      console.error('❌ No API key found');
       setError('Please set your OpenAI API key in settings');
       return;
     }
 
+    console.log('✅ Starting regular meal plan generation...');
     setIsGenerating(true);
     setError(null);
 

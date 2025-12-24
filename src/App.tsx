@@ -135,6 +135,45 @@ function App() {
     setSettings(newSettings);
   };
 
+  // Test API connectivity
+  const testAPI = async () => {
+    console.log('🧪 Testing API connectivity...');
+    if (!settings.apiKey) {
+      console.error('❌ No API key to test');
+      return;
+    }
+
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${settings.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'user', content: 'Say "API test successful" and nothing else' }
+          ],
+          temperature: 0.1,
+          max_tokens: 10,
+        }),
+      });
+
+      console.log('📥 Test API response status:', response.status, response.statusText);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ API Test successful:', data.choices[0]?.message?.content);
+      } else {
+        const errorData = await response.json();
+        console.error('❌ API Test failed:', errorData);
+      }
+    } catch (error) {
+      console.error('❌ API Test error:', error);
+    }
+  };
+
   const dailyTotals = calculateDailyTotals();
 
   const currentDayMeals = meals
@@ -155,6 +194,24 @@ function App() {
         />
 
         <CalorieDashboard totals={dailyTotals} settings={settings} />
+
+        {/* Debug Section - Remove in production */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+            <h3 className="text-sm font-medium text-yellow-800 mb-2">🔧 Debug Tools</h3>
+            <div className="flex gap-2">
+              <button
+                onClick={testAPI}
+                className="px-3 py-1 bg-yellow-500 text-white text-sm rounded hover:bg-yellow-600"
+              >
+                Test API
+              </button>
+              <span className="text-xs text-yellow-600">
+                Open browser console (F12) to see debug logs
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Meal Plan Generator */}
         <MealPlanGenerator
