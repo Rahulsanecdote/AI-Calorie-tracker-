@@ -77,6 +77,8 @@ export default function MealPlanGenerator({
 
   const handlePantryPlanGeneration = () => {
     console.log('🥘🥘🥘 handlePantryPlanGeneration called - Opening modal');
+    // Add a simple alert to confirm the function is working
+    alert('Pantry button clicked! Modal should open now.');
     setShowPantryInput(true);
   };
 
@@ -142,7 +144,7 @@ export default function MealPlanGenerator({
 
           {settings.apiKey ? (
             <div className="space-y-4">
-              {/* Pantry-Based Planning */}
+              {/* Pantry-Based Planning - Simplified Test */}
               <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Package className="w-5 h-5 text-emerald-600" />
@@ -152,11 +154,10 @@ export default function MealPlanGenerator({
                   Enter foods you have available and get a precise plan using only those ingredients
                 </p>
                 <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log('🥘🥘🥘 Pantry button clicked! Opening modal...');
-                    handlePantryPlanGeneration();
+                  id="pantry-button-test"
+                  onClick={() => {
+                    console.log('🥘 TEST: Pantry button clicked directly!');
+                    setShowPantryInput(true);
                   }}
                   disabled={isGenerating}
                   className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all font-medium disabled:opacity-50"
@@ -166,7 +167,7 @@ export default function MealPlanGenerator({
                 </button>
               </div>
 
-              {/* Generic Planning */}
+              {/* AI Suggestions - Simplified Test */}
               <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Sparkles className="w-5 h-5 text-gray-600" />
@@ -176,10 +177,9 @@ export default function MealPlanGenerator({
                   Get meal suggestions based on your goals and preferences
                 </p>
                 <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log('✨✨✨ AI Suggestions button clicked! Generating plan...');
+                  id="ai-suggestions-test"
+                  onClick={() => {
+                    console.log('✨ TEST: AI Suggestions button clicked directly!');
                     handleAIPlanGeneration();
                   }}
                   disabled={isGenerating}
