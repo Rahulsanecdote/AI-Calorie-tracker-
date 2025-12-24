@@ -16,6 +16,83 @@ const MEAL_PLAN_STORAGE_KEY = 'meal-plans';
 const TEMPLATE_STORAGE_KEY = 'meal-plan-templates';
 const PANTRY_STORAGE_KEY = 'user-pantry';
 
+// Utility function moved outside of the hook to avoid dependency issues
+const parseAIResponse = (
+  response: MealPlanGenerationResponse, 
+  settings: UserSettings,
+  usedPantry?: PantryData, 
+  regenerationCount: number = 1
+): DailyMealPlan => {
+  const calculateMacroRatio = (goal: UserSettings['goal']) => {
+    switch (goal) {
+      case 'weight_loss':
+        return { protein: 35, carbs: 40, fat: 25 };
+      case 'muscle_gain':
+        return { protein: 30, carbs: 50, fat: 20 };
+      case 'maintain':
+      default:
+        return { protein: 25, carbs: 45, fat: 30 };
+    }
+  };
+
+  const macroRatio = calculateMacroRatio(settings.goal || 'maintain');
+  
+  const meals: MealSection[] = response.meals.map(meal => {
+    const items: FoodItem[] = meal.foods.map(item => ({
+      id: uuidv4(),
+      name: item.name,
+      weightGrams: item.weight,
+      calories: item.calories,
+      protein: item.protein,
+      carbs: item.carbs,
+      fat: item.fat,
+      micronutrients: { fiber: item.fiber },
+      emoji: item.emoji,
+      isFromPantry: !!usedPantry,
+    }));
+
+    const totalCalories = meal.totals?.calories || items.reduce((sum, item) => sum + item.calories, 0);
+    const totalProtein = meal.totals?.protein || items.reduce((sum, item) => sum + item.protein, 0);
+    const totalCarbs = meal.totals?.carbs || items.reduce((sum, item) => sum + item.carbs, 0);
+    const totalFat = meal.totals?.fat || items.reduce((sum, item) => sum + item.fat, 0);
+
+    return {
+      type: meal.type,
+      items,
+      totalCalories,
+      totalProtein,
+      totalCarbs,
+      totalFat,
+      timeEstimate: meal.time,
+    };
+  });
+
+  const actualTotalCalories = response.dailyTotals?.calories || meals.reduce((sum, meal) => sum + meal.totalCalories, 0);
+  const totalProtein = meals.reduce((sum, meal) => sum + meal.totalProtein, 0);
+  const totalCarbs = meals.reduce((sum, meal) => sum + meal.totalCarbs, 0);
+  const totalFat = meals.reduce((sum, meal) => sum + meal.totalFat, 0);
+
+  // Calculate accuracy variance
+  const accuracyVariance = Math.abs(actualTotalCalories - settings.dailyCalorieGoal);
+
+  return {
+    id: uuidv4(),
+    date: new Date().toISOString().split('T')[0],
+    targetCalories: settings.dailyCalorieGoal,
+    meals,
+    totalMacros: { protein: totalProtein, carbs: totalCarbs, fat: totalFat },
+    macroRatio,
+    summary: response.summary,
+    createdAt: new Date().toISOString(),
+    
+    // Enhanced fields for pantry-based planning
+    accuracyVariance,
+    sourceType: usedPantry ? 'pantry_based' : 'generic',
+    usedPantry,
+    regenerationCount,
+  };
+};
+
 interface UseMealPlannerResult {
   currentPlan: DailyMealPlan | null;
   templates: MealPlanTemplate[];
@@ -64,76 +141,7 @@ export const useMealPlanner = (
     }
   }, []);
 
-  const calculateMacroRatio = (goal: UserSettings['goal']) => {
-    switch (goal) {
-      case 'weight_loss':
-        return { protein: 35, carbs: 40, fat: 25 };
-      case 'muscle_gain':
-        return { protein: 30, carbs: 50, fat: 20 };
-      case 'maintain':
-      default:
-        return { protein: 25, carbs: 45, fat: 30 };
-    }
-  };
 
-  const parseAIResponse = (response: MealPlanGenerationResponse, usedPantry?: PantryData, regenerationCount: number = 1): DailyMealPlan => {
-    const macroRatio = calculateMacroRatio(settings.goal || 'maintain');
-    
-    const meals: MealSection[] = response.meals.map(meal => {
-      const items: FoodItem[] = meal.foods.map(item => ({
-        id: uuidv4(),
-        name: item.name,
-        weightGrams: item.weight,
-        calories: item.calories,
-        protein: item.protein,
-        carbs: item.carbs,
-        fat: item.fat,
-        micronutrients: { fiber: item.fiber },
-        emoji: item.emoji,
-        isFromPantry: !!usedPantry,
-      }));
-
-      const totalCalories = meal.totals?.calories || items.reduce((sum, item) => sum + item.calories, 0);
-      const totalProtein = meal.totals?.protein || items.reduce((sum, item) => sum + item.protein, 0);
-      const totalCarbs = meal.totals?.carbs || items.reduce((sum, item) => sum + item.carbs, 0);
-      const totalFat = meal.totals?.fat || items.reduce((sum, item) => sum + item.fat, 0);
-
-      return {
-        type: meal.type,
-        items,
-        totalCalories,
-        totalProtein,
-        totalCarbs,
-        totalFat,
-        timeEstimate: meal.time,
-      };
-    });
-
-    const actualTotalCalories = response.dailyTotals?.calories || meals.reduce((sum, meal) => sum + meal.totalCalories, 0);
-    const totalProtein = meals.reduce((sum, meal) => sum + meal.totalProtein, 0);
-    const totalCarbs = meals.reduce((sum, meal) => sum + meal.totalCarbs, 0);
-    const totalFat = meals.reduce((sum, meal) => sum + meal.totalFat, 0);
-
-    // Calculate accuracy variance
-    const accuracyVariance = Math.abs(actualTotalCalories - settings.dailyCalorieGoal);
-
-    return {
-      id: uuidv4(),
-      date: new Date().toISOString().split('T')[0],
-      targetCalories: settings.dailyCalorieGoal,
-      meals,
-      totalMacros: { protein: totalProtein, carbs: totalCarbs, fat: totalFat },
-      macroRatio,
-      summary: response.summary,
-      createdAt: new Date().toISOString(),
-      
-      // Enhanced fields for pantry-based planning
-      accuracyVariance,
-      sourceType: usedPantry ? 'pantry_based' : 'generic',
-      usedPantry,
-      regenerationCount,
-    };
-  };
 
   // Enhanced pantry-based meal plan generation
   const generateMealPlanFromPantry = useCallback(async (pantryData: PantryInputData, regenerationCount: number = 1) => {
@@ -269,7 +277,7 @@ Return ONLY valid JSON, no markdown formatting:`;
         return;
       }
       
-      const mealPlan = parseAIResponse(parsedResponse, pantry, regenerationCount);
+      const mealPlan = parseAIResponse(parsedResponse, settings, pantry, regenerationCount);
       
       setCurrentPlan(mealPlan);
       
@@ -285,7 +293,7 @@ Return ONLY valid JSON, no markdown formatting:`;
     } finally {
       setIsGenerating(false);
     }
-  }, [settings, parseAIResponse]);
+  }, [settings]);
 
   const generateMealPlan = useCallback(async (request: MealPlanGenerationRequest) => {
     if (!settings.apiKey) {
@@ -378,7 +386,7 @@ Respond with only the JSON object, no markdown formatting.`;
       
       const parsedResponse: MealPlanGenerationResponse = JSON.parse(cleanedContent);
       
-      const mealPlan = parseAIResponse(parsedResponse);
+      const mealPlan = parseAIResponse(parsedResponse, settings);
       
       setCurrentPlan(mealPlan);
       
