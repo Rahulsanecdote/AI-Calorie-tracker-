@@ -68,6 +68,9 @@ export default function PantryInput({
   };
 
   const handleGeneratePlan = async () => {
+    console.log('🗃️ PantryInput handleGeneratePlan called');
+    console.log('📦 Pantry data:', pantryData);
+    console.log('💾 Save as default:', saveAsDefault);
     setIsGenerating(true);
     try {
       await onGeneratePlan(pantryData);

@@ -56,7 +56,7 @@ export default function MealPlanGenerator({
   }, []);
 
   const handleGeneratePlan = async () => {
-    console.log('🚀 handleGeneratePlan called');
+    console.log('🚀🚀 handleGeneratePlan called (AI Suggestions)');
     console.log('📊 Settings:', {
       apiKey: settings.apiKey ? 'Present' : 'Missing',
       dailyCalorieGoal: settings.dailyCalorieGoal,
@@ -71,11 +71,12 @@ export default function MealPlanGenerator({
     };
     
     console.log('📝 Request object:', request);
-    console.log('📡 Calling onGeneratePlan...');
+    console.log('📡 Calling onGeneratePlan (AI Suggestions)...');
     await onGeneratePlan(request);
   };
 
   const handleGeneratePlanFromPantry = async (pantryData: PantryInputData) => {
+    console.log('🍳 handleGeneratePlanFromPantry called with:', pantryData);
     await onGeneratePlanFromPantry(pantryData);
     setShowPantryInput(false);
   };
@@ -146,8 +147,10 @@ export default function MealPlanGenerator({
                   Enter foods you have available and get a precise plan using only those ingredients
                 </p>
                 <button
-                  onClick={() => {
-                    console.log('🥘 Pantry button clicked!');
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('🥘🥘🥘 Pantry button clicked! Opening modal...');
                     setShowPantryInput(true);
                   }}
                   disabled={isGenerating}
@@ -168,8 +171,10 @@ export default function MealPlanGenerator({
                   Get meal suggestions based on your goals and preferences
                 </p>
                 <button
-                  onClick={() => {
-                    console.log('✨ AI Suggestions button clicked!');
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('✨✨✨ AI Suggestions button clicked! Generating plan...');
                     handleGeneratePlan();
                   }}
                   disabled={isGenerating}
