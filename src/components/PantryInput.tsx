@@ -119,9 +119,9 @@ export default function PantryInput({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-xl">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-100">
+      <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-xl flex flex-col">
+        {/* Header - Fixed */}
+        <div className="flex items-center justify-between p-4 border-b border-gray-100 flex-shrink-0">
           <div className="flex items-center gap-2">
             <div className="p-2 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-lg">
               <Package className="w-5 h-5 text-emerald-600" />
@@ -140,8 +140,8 @@ export default function PantryInput({
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-4 overflow-y-auto max-h-[70vh]">
+        {/* Content - Scrollable */}
+        <div className="flex-1 overflow-y-auto p-4">
           <div className="space-y-4">
             {Object.entries(pantryData).map(([mealType, foods]) => {
               const mealData = getMealData(mealType as keyof PantryInputData);
@@ -190,12 +190,9 @@ export default function PantryInput({
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Footer */}
-        <div className="flex flex-col gap-3 p-4 border-t border-gray-100">
           {/* Save as Default Checkbox */}
-          <div className="flex items-center gap-2">
+          <div className="mt-6 flex items-center gap-2">
             <input
               type="checkbox"
               id="saveDefault"
@@ -217,34 +214,34 @@ export default function PantryInput({
               </button>
             )}
           </div>
+        </div>
 
-          {/* Action Buttons */}
-          <div className="flex justify-end gap-3">
-            <button
-              onClick={onClose}
-              disabled={isGenerating}
-              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleGeneratePlan}
-              disabled={!isFormValid || isGenerating}
-              className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isGenerating ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Generating Plan...
-                </>
-              ) : (
-                <>
-                  <Check className="w-4 h-4" />
-                  Generate Smart Meal Plan
-                </>
-              )}
-            </button>
-          </div>
+        {/* Footer - Fixed at bottom */}
+        <div className="flex justify-end gap-3 p-4 border-t border-gray-100 flex-shrink-0">
+          <button
+            onClick={onClose}
+            disabled={isGenerating}
+            className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleGeneratePlan}
+            disabled={!isFormValid || isGenerating}
+            className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isGenerating ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Generating Plan...
+              </>
+            ) : (
+              <>
+                <Check className="w-4 h-4" />
+                Generate Smart Meal Plan
+              </>
+            )}
+          </button>
         </div>
       </div>
     </div>
