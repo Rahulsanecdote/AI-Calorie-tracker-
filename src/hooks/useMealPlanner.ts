@@ -166,25 +166,13 @@ export const useMealPlanner = (
       updatedAt: new Date().toISOString(),
     };
 
-    const systemPrompt = `You are a precision nutrition calculator. Generate an exact daily meal plan using ONLY the foods provided by the user.
+    const systemPrompt = `You are a precision nutrition calculator. Generate a meal plan using ONLY the provided foods.
 
-CRITICAL CONSTRAINTS:
-1. ONLY use foods from the available lists below - NO other foods allowed
-2. Calculate EXACT gram amounts to hit the calorie target precisely
-3. Total daily calories MUST equal ${settings.dailyCalorieGoal} (±20 calories maximum)
-4. Use strict meal calorie distribution:
-   - Breakfast: ${Math.round(settings.dailyCalorieGoal * 0.27)} calories (27%)
-   - Lunch: ${Math.round(settings.dailyCalorieGoal * 0.38)} calories (38%)
-   - Dinner: ${Math.round(settings.dailyCalorieGoal * 0.32)} calories (32%)
-   - Snack: ${Math.round(settings.dailyCalorieGoal * 0.03)} calories (3%)
+CRITICAL: Return ONLY valid JSON, no markdown, no additional text.
 
-5. Each meal must have 2-4 food items with precise gram weights
-6. Calculate exact nutritional values for each food item
-7. Use appropriate food emojis
-
-OUTPUT FORMAT (MUST BE VALID JSON):
+Required format:
 {
-  "summary": "Brief nutritional theme description",
+  "summary": "Brief description",
   "meals": [
     {
       "type": "breakfast",
@@ -195,16 +183,14 @@ OUTPUT FORMAT (MUST BE VALID JSON):
       "totals": { "calories": 540, "protein": 20, "carbs": 65, "fat": 15 }
     }
   ],
-  "dailyTotals": {
-    "calories": ${settings.dailyCalorieGoal},
-    "protein": 150,
-    "carbs": 225,
-    "fat": 67,
-    "fiber": 25
-  }
+  "dailyTotals": { "calories": ${settings.dailyCalorieGoal}, "protein": 150, "carbs": 225, "fat": 67, "fiber": 25 }
 }
 
-IMPORTANT: The dailyTotals.calories MUST equal ${settings.dailyCalorieGoal}`;
+CONSTRAINTS:
+1. Use ONLY the foods provided
+2. Calculate precise portions for ${settings.dailyCalorieGoal} calories
+3. Ensure meals add up to daily total
+4. Return valid JSON only`;
 
     const userPrompt = `Generate a precise meal plan using ONLY these available foods:
 
@@ -283,19 +269,35 @@ Return ONLY valid JSON, no markdown formatting:`;
       // Clean up the response (remove markdown code blocks if present)
       const cleanedContent = content.replace(/```json\s*|\s*```/g, '').trim();
       
+      console.log('🧹 Cleaned pantry content:', cleanedContent);
+      
       let parsedResponse: MealPlanGenerationResponse;
       try {
         parsedResponse = JSON.parse(cleanedContent);
+        console.log('✅ Successfully parsed pantry meal plan response:', parsedResponse);
       } catch (parseError) {
-        console.error('Failed to parse AI response as JSON:', parseError);
-        console.error('Raw AI response:', content);
-        throw new Error('AI returned invalid response format. Please try again.');
+        console.error('❌ Failed to parse pantry meal plan JSON:', parseError);
+        console.error('📝 Raw content that failed to parse:', cleanedContent);
+        
+        // Try to extract JSON from the content if it's embedded in text
+        const jsonMatch = cleanedContent.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            parsedResponse = JSON.parse(jsonMatch[0]);
+            console.log('✅ Extracted pantry JSON from embedded content:', parsedResponse);
+          } catch (extractError) {
+            console.error('❌ Failed to extract pantry JSON:', extractError);
+            throw new Error('AI returned invalid pantry meal plan format. Please try again.');
+          }
+        } else {
+          throw new Error('AI did not return valid pantry meal plan JSON. Please try again.');
+        }
       }
       
       // Validate response structure
-      if (!parsedResponse.meals || !Array.isArray(parsedResponse.meals)) {
-        console.error('Invalid response structure:', parsedResponse);
-        throw new Error('AI returned invalid meal plan structure. Please try again.');
+      if (!parsedResponse.meals || !Array.isArray(parsedResponse.meals) || parsedResponse.meals.length === 0) {
+        console.error('❌ Invalid pantry meal plan structure:', parsedResponse);
+        throw new Error('AI returned incomplete pantry meal plan. Please try again.');
       }
       
       // Validate accuracy
@@ -344,29 +346,32 @@ Return ONLY valid JSON, no markdown formatting:`;
     setIsGenerating(true);
     setError(null);
 
-    const systemPrompt = `You are an expert nutritionist and chef. Create a personalized daily meal plan based on the user's profile and goals.
+    const systemPrompt = `You are an expert nutritionist. Create a daily meal plan in EXACT JSON format.
 
-Rules:
-1. Always return valid JSON with no additional text
-2. Use practical, commonly available foods
-3. Provide exact gram weights for all food items
-4. Calculate precise nutritional values per food item
-5. Ensure variety across meals (different proteins, vegetables, grains)
-6. Include fiber content when relevant
-7. Use appropriate food emojis
+CRITICAL: Return ONLY valid JSON, no markdown, no additional text.
 
-Output format:
+Required format:
 {
-  "summary": "Brief description of the day's nutritional theme",
+  "summary": "Brief description",
   "meals": [
     {
       "type": "breakfast",
-      "items": [
+      "time": "7:00 AM",
+      "foods": [
         { "name": "Food Name", "weight": 100, "unit": "g", "calories": 150, "protein": 5, "carbs": 27, "fat": 3, "fiber": 4, "emoji": "🥣" }
-      ]
+      ],
+      "totals": { "calories": 500, "protein": 20, "carbs": 60, "fat": 15 }
     }
-  ]
-}`;
+  ],
+  "dailyTotals": { "calories": 2000, "protein": 150, "carbs": 250, "fat": 67, "fiber": 25 }
+}
+
+Rules:
+1. Use practical foods with gram weights
+2. Calculate accurate nutrition for each item
+3. Ensure meals add up to daily totals
+4. Use appropriate food emojis
+5. Return valid JSON only`;
 
     const userPrompt = `Generate a daily meal plan for:
 - Daily calorie goal: ${request.targetCalories} calories
@@ -424,7 +429,36 @@ Respond with only the JSON object, no markdown formatting.`;
       // Clean up the response (remove markdown code blocks if present)
       const cleanedContent = content.replace(/```json\s*|\s*```/g, '').trim();
       
-      const parsedResponse: MealPlanGenerationResponse = JSON.parse(cleanedContent);
+      console.log('🧹 Cleaned content:', cleanedContent);
+      
+      let parsedResponse: MealPlanGenerationResponse;
+      try {
+        parsedResponse = JSON.parse(cleanedContent);
+        console.log('✅ Successfully parsed meal plan response:', parsedResponse);
+      } catch (parseError) {
+        console.error('❌ Failed to parse meal plan JSON:', parseError);
+        console.error('📝 Raw content that failed to parse:', cleanedContent);
+        
+        // Try to extract JSON from the content if it's embedded in text
+        const jsonMatch = cleanedContent.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            parsedResponse = JSON.parse(jsonMatch[0]);
+            console.log('✅ Extracted JSON from embedded content:', parsedResponse);
+          } catch (extractError) {
+            console.error('❌ Failed to extract JSON:', extractError);
+            throw new Error('AI returned invalid meal plan format. Please try again.');
+          }
+        } else {
+          throw new Error('AI did not return valid JSON meal plan. Please try again.');
+        }
+      }
+      
+      // Validate response structure
+      if (!parsedResponse.meals || !Array.isArray(parsedResponse.meals) || parsedResponse.meals.length === 0) {
+        console.error('❌ Invalid meal plan structure:', parsedResponse);
+        throw new Error('AI returned incomplete meal plan. Please try again.');
+      }
       
       const mealPlan = parseAIResponse(parsedResponse, settings);
       
