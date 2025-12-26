@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Button Test - Minimal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center">
+  <div class="max-w-md mx-auto p-8 bg-white rounded-2xl shadow-lg">
+    <h1 class="text-2xl font-bold text-gray-900 mb-6 text-center">Button Function Test</h1>
+    
+    <div class="space-y-4">
+      <!-- Pantry Button - Direct inline handler -->
+      <button
+        onclick="console.log('PANTRY CLICKED'); alert('Pantry button clicked!'); document.getElementById('pantry-modal').style.display='flex';"
+        class="w-full py-4 px-6 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold rounded-xl shadow-lg hover:from-emerald-600 hover:to-teal-600 active:transform active:scale-95 transition-all"
+      >
+        🥘 Plan from Available Foods
+      </button>
+      
+      <!-- AI Suggestions Button -->
+      <button
+        onclick="console.log('AI CLICKED'); alert('AI Suggestions button clicked!');"
+        class="w-full py-4 px-6 bg-gray-600 text-white font-bold rounded-xl shadow-lg hover:bg-gray-700 active:transform active:scale-95 transition-all"
+      >
+        ✨ Generate Suggestions
+      </button>
+    </div>
+    
+    <!-- Hidden Modal -->
+    <div id="pantry-modal" style="display:none;" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-2xl p-6 w-full max-w-md">
+        <h2 class="text-xl font-bold mb-4">Pantry Modal Works!</h2>
+        <p class="text-gray-600 mb-4">If you can see this, the pantry button is working correctly.</p>
+        <button
+          onclick="document.getElementById('pantry-modal').style.display='none';"
+          class="w-full py-2 px-4 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    console.log('Test page loaded successfully');
+    console.log('If you can see this message, JavaScript is working');
+  </script>
+</body>
+</html>

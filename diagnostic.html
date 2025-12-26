@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Key Diagnostic</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center">
+  <div class="max-w-lg mx-auto p-8 bg-white rounded-2xl shadow-lg">
+    <h1 class="text-2xl font-bold text-gray-900 mb-6">🔧 API Key Diagnostic</h1>
+    
+    <div id="results" class="space-y-4">
+      <div class="p-4 bg-gray-100 rounded-lg">
+        <p class="text-gray-600">Checking localStorage...</p>
+      </div>
+    </div>
+    
+    <div class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+      <h2 class="font-semibold text-blue-800 mb-2">Manual Test:</h2>
+      <p class="text-sm text-blue-700 mb-2">Open browser console (F12) and type:</p>
+      <code class="block bg-blue-100 p-2 rounded text-sm">localStorage.getItem('nutriai_settings')</code>
+      <p class="text-xs text-blue-600 mt-2">This will show if your API key is saved.</p>
+    </div>
+  </div>
+  
+  <script>
+    const resultsDiv = document.getElementById('results');
+    
+    function showResult(label, value, isError = false) {
+      const div = document.createElement('div');
+      div.className = `p-4 ${isError ? 'bg-red-50 border border-red-200' : 'bg-green-50 border border-green-200'} rounded-lg`;
+      div.innerHTML = `
+        <p class="font-semibold ${isError ? 'text-red-800' : 'text-green-800'}">${label}</p>
+        <p class="text-sm ${isError ? 'text-red-600' : 'text-green-600'} mt-1">${value}</p>
+      `;
+      resultsDiv.appendChild(div);
+    }
+    
+    function checkLocalStorage() {
+      try {
+        const settings = localStorage.getItem('nutriai_settings');
+        
+        if (!settings) {
+          showResult('❌ No Settings Found', 'nutriai_settings key does not exist in localStorage', true);
+          return;
+        }
+        
+        const parsed = JSON.parse(settings);
+        showResult('✅ Settings Found', 'nutriai_settings exists in localStorage');
+        
+        if (parsed.apiKey) {
+          showResult('✅ API Key Present', `Key length: ${parsed.apiKey.length} characters<br>Preview: ${parsed.apiKey.substring(0, 8)}...`);
+        } else {
+          showResult('❌ No API Key', 'apiKey field is missing or empty in settings', true);
+        }
+        
+        // Show all settings (except API key)
+        const safeSettings = { ...parsed };
+        delete safeSettings.apiKey;
+        showResult('Other Settings', JSON.stringify(safeSettings, null, 2));
+        
+      } catch (error) {
+        showResult('❌ Error', error.message, true);
+      }
+    }
+    
+    // Run on load
+    checkLocalStorage();
+    
+    // Also expose a function to refresh
+    window.checkLocalStorage = checkLocalStorage;
+    
+    console.log('=== API Key Diagnostic ===');
+    console.log('Click the button on the page or type checkLocalStorage() in console to refresh');
+  </script>
+</body>
+</html>
